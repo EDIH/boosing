@@ -47,6 +47,16 @@
         </v-layer>
       </v-stage>
       <div>
+        <div
+          v-for="color in colors"
+          class="color-selector"
+          :style="{ backgroundColor : color }"
+          @click="selectColor(color)"
+        >
+        </div>
+      </div>
+      <div class="separator"></div>
+      <div>
         <div 
           v-for="item in groupedItems" 
           :style="{ color: item.color }" 
@@ -81,18 +91,28 @@ const useKeyboardBindings = (map) => {
 export default {
   data() {
     return {
-      rowHeight: 20,
-      columnWidth: 25,
+      rowHeight: 15,
+      columnWidth: 15,
       run: false,
       spb: 1,
-      round: 32,
+      round: 30,
       line: [],
       repeat: 1,
       configKonva: {
-        width: 500,
+        width: 1000,
         height: 300
       },
       isDrawing: false,
+      selectedColor: 'black',
+      colors: [
+        'red',
+        'green',
+        'blue',
+        'white',
+        'yellow',
+        'pink',
+        'brown'
+      ]
       // configCircle: {
       //   x: 100,
       //   y: 100,
@@ -210,15 +230,13 @@ export default {
       
     }, 
     keepDrawing (e) {
-      // console.log(e);
-      
       if (this.isDrawing)
         this.remap(e.target.index)
     }, 
     stopDrawing () {
       this.isDrawing = false
     },
-    remap(index) {
+    remap (index) {
       const newLine = this.uniqueLine.reduce(
         (a,c,i) => {
         
@@ -226,30 +244,27 @@ export default {
           clone.count = 1
 
           if((index % this.lineLength) === c.number) {
-            clone.color = 'pink'
+            clone.color = this.selectedColor
           }
 
           if(!i){
             return [clone]
           }
-          // let prevElement = a[a.length-1]
-          // prevElement.color = 'some'
+
           if (a[a.length-1].color === clone.color) {
             a[a.length-1].count++
           } else {
             a.push(clone)
           }
-          // }
-          // else {
-          //   a.push(clone)
-          // }
           
           return a;
       },[])
       this.line = newLine
-      // console.log(newLine);
       
     },
+    selectColor (color) {
+      this.selectedColor = color
+    }
   },
   created () {
     this.pollData()
@@ -360,5 +375,14 @@ export default {
   .play {
     background-color: green;
     color: red;
+  }
+  .color-selector {
+    width: 20px;
+    height: 20px;
+    margin: 5px;
+    float: left;
+  }
+  .separator {
+    clear: both;
   }
 </style>
