@@ -211,17 +211,23 @@ export default {
       }
     },
     async fetchData( id = 0 ) {
-      console.log('INIT FROM API');
-      try {
-          this.data = await axios.get(`/api/get/${id}`)
-            .then( (res) => {
-              this.line = res.data.raports.main.content
-              this.repeat = res.data.config.raport_repeat
+      if(localStorage.getItem('line')){
+        this.line = JSON.parse(localStorage.getItem('line'))
+        console.log('INIT FROM LOCAL STORAGE');
 
-            });
-      } catch (error) {
-          // Do something with the error
-          console.log(error);
+      } else {
+        console.log('INIT FROM API');
+        try {
+            this.data = await axios.get(`/api/get/${id}`)
+              .then( (res) => {
+                this.line = res.data.raports.main.content
+                this.repeat = res.data.config.raport_repeat
+
+              });
+        } catch (error) {
+            // Do something with the error
+            console.log(error);
+        }
       }
     },
     beginDrawing (e) {
@@ -269,6 +275,9 @@ export default {
   created () {
     this.pollData()
     this.fetchData()
+    window.addEventListener('beforeunload', (event) => {
+      localStorage.setItem("line", JSON.stringify(this.line));
+    })
   },
   components: { Button },
   setup() {
