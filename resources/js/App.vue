@@ -15,10 +15,18 @@
       red: [11600, 1000],
       white: [13300, 1000],
       yellow: [14700, 1000], -->
-      <input :value="spb" @input="onInput" placeholder="Інтервал в секундах між бісеринами">
+      <input 
+        :value="spb" 
+        @input="onInputTimeInterval" 
+        placeholder="Інтервал в секундах між бісеринами">
       <input 
         :value="round"
+        @input="onInputRound"
         placeholder="Окружність(довжина одного кола)">
+      <input 
+        :value="repeat"
+        @input="onInputRepeat"
+        placeholder="Повторів">
       <button @click="tooglePlay" :class="{ play: run }"> 
         <span v-if="!run"> ▶ </span>
         <span v-else > ❚❚ </span> 
@@ -30,58 +38,61 @@
         <v-layer>
           <v-rect
             v-for="item in bitmap"
-            :config="getConfig(item)">
+            :config="getConfig(item)"
+            @mousedown="beginDrawing" 
+            @mouseover="keepDrawing" 
+            @mouseup="stopDrawing"
+            >
           </v-rect>
         </v-layer>
       </v-stage>
-      <div 
-        v-for="item in groupedItems" 
-        :style="{ color: item.color }" 
-        :class="{ active : item.isActive }" 
-        @click="moveTo(item)" >
-        ❤ {{ item.count }}
-        <!-- <span v-for="s in item.count">{{ s }}</span> -->
+      <div>
+        <div 
+          v-for="item in groupedItems" 
+          :style="{ color: item.color }" 
+          :class="{ active : item.isActive }" 
+          @click="moveTo(item)" >
+          ❤ {{ item.count }}
+          <!-- <span v-for="s in item.count">{{ s }}</span> -->
+        </div>
       </div>
   </div>
 </template>
 <script>
 import { onMounted, onUnmounted } from 'vue'
 import { useSound } from '@vueuse/sound'
-import drumSfx from '../assets/sound/10colors.mp3'
+import spriteSfx from '../assets/sound/colors_and_digits.mp3'
 import Button from './Components/Button.vue'
 
-// const useKeyboardBindings = (map) => {
-//   const handlePress = (ev) => {
-//     const handler = map[ev.key]
-//     if (typeof handler === 'function') {
-//       handler()
-//     }
-//   }
-  // onMounted(() => {
-  //   var c = document.getElementById("c");
-  //   var ctx = c.getContext("2d");    
-  //   this.vueCanvas = ctx;
-  //   console.log(this.vueCanvas);
-  //   console.log('_________________________');
-  //   // window.addEventListener('keydown', handlePress)
-  // })
-//   onUnmounted(() => {
-//     window.removeEventListener('keydown', handlePress)
-//   })
-// }
+const useKeyboardBindings = (map) => {
+  const handlePress = (ev) => {
+    const handler = map[ev.key]
+    if (typeof handler === 'function') {
+      handler()
+    }
+  }
+  onMounted(() => {
+    window.addEventListener('keydown', handlePress)
+  })
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handlePress)
+  })
+}
 export default {
   data() {
     return {
       rowHeight: 20,
       columnWidth: 25,
-      run: true,
+      run: false,
       spb: 1,
-      round: 16,
+      round: 32,
       line: [],
+      repeat: 1,
       configKonva: {
         width: 500,
         height: 300
       },
+      isDrawing: false,
       // configCircle: {
       //   x: 100,
       //   y: 100,
@@ -111,20 +122,36 @@ export default {
                 }
               }
               if (item.isActive) {
-                // this.play({id: item.color})
+                // console.log(item.count*1);
+                
+                this.play({id: item.color})
+
+                setTimeout(
+                  () => this.play({id: item.count.toString()}), 
+                  500
+                )
+                
                 isNextActive = true
               }
             });
           }
         }, frequency)
     },
-    onInput (e) {
+    onInputTimeInterval (e) {
       let boosing = e.target.value*1
       if (Number.isInteger(boosing) && boosing > 0) {
         clearInterval(this.polling)
         this.spb = e.target.value
         this.pollData();
       }
+    },
+    onInputRound (e) {
+      let round = e.target.value*1
+      this.round = round
+    },
+    onInputRepeat (e) {
+      let repeat = e.target.value*1
+      this.repeat = repeat
     },
     tooglePlay () {
       this.run = !this.run
@@ -152,7 +179,7 @@ export default {
     getConfig(item){
       // console.log(item);
       let y = Math.floor(item.id / this.round) * this.rowHeight
-      let x = (item.id % this.round - 1) * this.columnWidth
+      let x = (item.id % this.round) * this.columnWidth
       // console.log(item);
       return {
         x: x,
@@ -164,80 +191,114 @@ export default {
       }
     },
     async fetchData( id = 0 ) {
-      // this.data = ref()
+      console.log('INIT FROM API');
       try {
           this.data = await axios.get(`/api/get/${id}`)
             .then( (res) => {
               this.line = res.data.raports.main.content
+              this.repeat = res.data.config.raport_repeat
+
             });
-          // this.line = this.data.raports.main.content
-          // console.log(this.line);
       } catch (error) {
           // Do something with the error
           console.log(error);
       }
-      // const res = await axios
-      //   .get(`/api/get/${id}`)
-      //   .then((result) => {
-      //       console.log(result.data)
-      //   })
-      // console.log(this.res);
-      // this.line = 
-    }
-    // chunk(arr, size) {
-    //   Array.from({ length: Math.ceil(arr.length / size) }, (v, i) =>
-    //     arr.slice(i * size, i * size + size)
-    //   );
-    // }
+    },
+    beginDrawing (e) {
+      this.isDrawing = true
+      this.remap(e.target.index)
+      
+    }, 
+    keepDrawing (e) {
+      // console.log(e);
+      
+      if (this.isDrawing)
+        this.remap(e.target.index)
+    }, 
+    stopDrawing () {
+      this.isDrawing = false
+    },
+    remap(index) {
+      const newLine = this.uniqueLine.reduce(
+        (a,c,i) => {
+        
+          var clone = { ...c }
+          clone.count = 1
+
+          if((index % this.lineLength) === c.number) {
+            clone.color = 'pink'
+          }
+
+          if(!i){
+            return [clone]
+          }
+          // let prevElement = a[a.length-1]
+          // prevElement.color = 'some'
+          if (a[a.length-1].color === clone.color) {
+            a[a.length-1].count++
+          } else {
+            a.push(clone)
+          }
+          // }
+          // else {
+          //   a.push(clone)
+          // }
+          
+          return a;
+      },[])
+      this.line = newLine
+      // console.log(newLine);
+      
+    },
   },
   created () {
     this.pollData()
-    this.fetchData();
-    // this.drawRect()
-    // window.addEventListener('keyup', this.tooglePlay())
+    this.fetchData()
   },
-  // destroyed() {
-  //   clearInterval(this.polling)
-  // },
   components: { Button },
   setup() {
     onMounted(() => {
 
     })
-    const { play } = useSound(drumSfx, {
+    const { play } = useSound(spriteSfx, {
       sprite: {
         black: [700, 1000],
         blue: [2200, 1000],
         brown: [3500, 1000],
-        green: [5200, 1000],
+        green: [5400, 1000],
         orange: [7100, 1000],
         pink: [8600, 1000],
         purple: [10000, 1000],
         red: [11600, 1000],
         white: [13300, 1000],
         yellow: [14700, 1000],
+        '0': [16000, 800],
+        '1': [17200, 800],
+        '2': [18000, 800],
+        '3': [18700, 800],
+        '4': [19700, 800],
+        '5': [20700, 800],
+        '6': [21600, 800],
+        '7': [22500, 800],
+        '8': [23400, 700],
+        '9': [24200, 800],
       },
+      playbackRate: 1.1,
+      // interrupt: false,
     })
-      // setInterval(() => {
-      // // console.log()
-      //   // play({ id: 'pink' })
-      // }, 1010)
-      // useKeyboardBindings({
-        // 1: () => play({ id: 'black' }),
-        // 2: () => play({ id: 'blue' }),
-        // 3: () => play({ id: 'brown' }),
-        // 4: () => play({ id: 'green' }),
-        // 5: () => play({ id: 'orange' }),
-        // 6: () => play({ id: 'pink' }),
-        // 7: () => play({ id: 'purple' }),
-        // 8: () => play({ id: 'red' }),
-        // 9: () => play({ id: 'white' }),
-        // 0: () => play({ id: 'yellow' }),
-        // " ": () => {
-        //   this.play = false
-        // }
-      // })
-      // this.interval = setInterval(() => console.log(1), 3000);
+    // useKeyboardBindings({
+    //   0: () => play({ id: '0' }),
+    //   1: () => play({ id: '1' }),
+    //   2: () => play({ id: '2' }),
+    //   3: () => play({ id: '3' }),
+    //   4: () => play({ id: '4' }),
+    //   5: () => play({ id: '5' }),
+    //   6: () => play({ id: '6' }),
+    //   7: () => play({ id: '7' }),
+    //   8: () => play({ id: '8' }),
+    //   9: () => play({ id: '9' }),
+    // })
+
     return {
       play,
     }
@@ -250,27 +311,43 @@ export default {
       return this.line.slice().reverse()
     },
     bitmap() {
-      console.log('render bitmap', this.line);
-
-      // const initialValue = 0;
       var count = 0;
-      const bitmap = this.line.reduce(
+      // console.log(this.line);
+      // for(let i=0; i > this.)
+      const raport = this.line.reduce(
         (accumulator, currentValue) => {
-          for(let i = 0; i <= currentValue.count; i++) {
-            console.log(count);
-            currentValue.id = count
+          for(let i = 1; i <= currentValue.count; i++) {
+            let clone = { 
+              id: currentValue.id,
+              color: currentValue.color
+            }
+            clone.number = count
             count++
-            // console.log(currentValue);
-            accumulator.push(currentValue);
+            accumulator.push(clone);
           }
-            
           return accumulator
         },
         [],
       );
 
-      // console.log(sumWithInitial);
+      var bitmap = []
+
+      for(let i = 0; i < raport.length * this.repeat; i++) {
+        let current = raport[ i % raport.length ];
+        let clone = { ...current }
+        clone.id = i
+        bitmap.push(clone)
+      }
+      // let bitmap = Array(this.repeat).fill(raport).flat()
+      // console.log(bitmap);
+      
       return bitmap
+    },
+    lineLength () {
+      return this.line.reduce( (a,c) => a+c.count, 0)
+    },
+    uniqueLine() {
+      return this.bitmap.slice(0, this.lineLength)
     }
   }
 }
