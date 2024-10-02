@@ -37,6 +37,15 @@
       <v-stage :config="configKonva">
         <v-layer>
           <v-rect
+            x="10"
+            y="10"
+            width="10"
+            height="10"
+            fill="black"
+            stroke="black"
+          >
+          </v-rect>
+          <v-rect
             v-for="item in bitmap"
             :config="getConfig(item)"
             @mousedown="beginDrawing" 
@@ -91,8 +100,8 @@ const useKeyboardBindings = (map) => {
 export default {
   data() {
     return {
-      rowHeight: 15,
-      columnWidth: 15,
+      rowHeight: 10,
+      columnWidth: 10,
       run: false,
       spb: 1,
       round: 30,
@@ -148,7 +157,7 @@ export default {
 
                 setTimeout(
                   () => this.play({id: item.count.toString()}), 
-                  500
+                  800
                 )
                 
                 isNextActive = true
@@ -198,7 +207,7 @@ export default {
     },
     getConfig(item){
       // console.log(item);
-      let y = Math.floor(item.id / this.round) * this.rowHeight
+      let y = Math.floor(item.id / this.round) * this.rowHeight + 50
       let x = (item.id % this.round) * this.columnWidth
       // console.log(item);
       return {
